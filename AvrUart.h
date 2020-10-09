@@ -9,12 +9,15 @@
 /*********************************************************************************/
 #include "SysTypedef.h"
 /*********************************************************************************/
-#define AVR_UART_REVISION_DATE		20191010
+#define AVR_UART_REVISION_DATE		20200826
 /*********************************************************************************/
 /** REVISION HISTORY **/
 /*
+	2020. 08. 26.					-	사용자 정의 RS-485 ENABLE핀 제어 함수 추가.
+	Jeong Hyun Gu
+
 	2019. 10. 10.					- AvrUartCheckTx(), AvrUartCheckRx() 매크로 함수로 변경.
-	Jeong Hyun Gu					-	AvrUartControlTxEnd() 추가. TX 종료 후 RX로 전환되기까지 
+	Jeong Hyun Gu					-	AvrUartControlTxEnd() 추가. TX 종료 후 RX로 전환되기까지
 													지연 시간 추가.
 												- AvrUartControlTxEnd() 함수가 AvrUartFixTxEnableFloating()를
 													대체할 수 있기 때문에 삭제, 하위 호환을 위해 AvrUartFixTxEnableFloating()를
@@ -82,6 +85,7 @@ typedef struct
 		tU8 InitRegister			:			1;
 		tU8 InitBuffer				:			1;
 		tU8 InitGeneral				:			1;
+		tU8 LinkUserEnPinCtrl	:			1;
 		tU8 InitComplete			:			1;
 
 		tU8 DataSend					:			1;
@@ -97,9 +101,11 @@ typedef struct
 
 	tag_AvrUartRingBuf TxQueue;
 	tag_AvrUartRingBuf RxQueue;
-	
+
 	tU16 TxEndDelay;
 	tU16 TxEndCnt;
+
+	void (*TurnOnEnPin)(tU8 OnFlag);
 }tag_AvrUartCtrl;
 
 /*********************************************************************************/
@@ -108,6 +114,7 @@ typedef struct
 tU8 AvrUartLinkRegister(tag_AvrUartCtrl *Com, tU8 *pUDR, tU8 *pUCSRA, tU8 *pEnablePort, tU8 EnablePin);
 tU8 AvrUartLinkBuffer(tag_AvrUartCtrl *Com, tU8 *TxBuf, tU16 TxBufSize, tU8 *RxBuf, tU16 RxBufSize);
 tU8 AvrUartGeneralInit(tag_AvrUartCtrl *Com);
+tU8 AvrUartLinkUserEnPinCtrl(tag_AvrUartCtrl *Com, void (*TurnOnEnPin)(tU8 OnFlag));
 #define AvrUartSetTxEndDelay(Com, Delay_us, MainLoopTick_us)							((Com)->TxEndDelay = Delay_us / MainLoopTick_us)
 
 void AvrUartPutData(tag_AvrUartCtrl *Com, tU8 *Buf, tU16 Length);
