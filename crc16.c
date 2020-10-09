@@ -6,7 +6,7 @@
 /*********************************************************************************/
 #include "crc16.h"
 /*********************************************************************************/
-#if(AVR_CRC16_REVISION_DATE != 20191007)
+#if(AVR_CRC16_REVISION_DATE != 20200907)
 #error wrong include file. (crc16.h)
 #endif
 /*********************************************************************************/
@@ -14,7 +14,12 @@
 
 
 /* CRC16 Table High byte */
+#if(__CRC16_TARGET_IAR_AVR__ == true)
+#include <ina90.h>
+const tU8 __flash CRC16Hi[] =
+#else
 const tU8 CRC16Hi[] =
+#endif
 {
 	0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
 	0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
@@ -51,7 +56,11 @@ const tU8 CRC16Hi[] =
 };
 
 /* CRC16 Table Low byte */
+#if(__CRC16_TARGET_IAR_AVR__ == true)
+const tU8 __flash CRC16Lo[] =
+#else
 const tU8 CRC16Lo[] =
+#endif
 {
 	0x00, 0xC0, 0xC1, 0x01, 0xC3, 0x03, 0x02, 0xC2,
 	0xC6, 0x06, 0x07, 0xC7, 0x05, 0xC5, 0xC4, 0x04,

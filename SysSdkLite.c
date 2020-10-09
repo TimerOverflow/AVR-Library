@@ -8,7 +8,7 @@
 #include <math.h>
 #include "SysSdkLite.h"
 /*********************************************************************************/
-#if(SYS_SDK_LITE_REVISION_DATE != 20200720)
+#if(SYS_SDK_LITE_REVISION_DATE != 20200922)
 #error wrong include file. (SysSdkLite.h)
 #endif
 /*********************************************************************************/
@@ -93,8 +93,8 @@ double AdTempCalc_4_7(double x)
 		T1 : 3
 		T2 : 52
 		T3 : 101
-		
-		adc 1000: 약 -42도 
+
+		adc 1000: 약 -42도
 		adc 50: 약 165도
 		권장 사용 범위는 -40~160도.
 		에러검출은 -45도 이하, 165이상일 경우.
@@ -135,8 +135,8 @@ double AdTempCalc_20k_TypeA(double x)
 		T1 : 0
 		T2 : 20
 		T3 : 60
-		
-		adc 1585: 약 -20도 
+
+		adc 1585: 약 -20도
 		adc 158: 약 80도
 		권장 사용 범위는 -20~80도.
 		에러검출은 -45도 이하, 85도 이상일 경우.
@@ -146,7 +146,7 @@ double AdTempCalc_20k_TypeA(double x)
 
 	x = x / 3.3 * 2.7;
 	//VSOURCE, VREF가 다른 부분을 처리한다.
-	
+
 	temp = (x * 20) / (2047 - x);
 	temp = log(temp);
 
@@ -158,7 +158,7 @@ double AdTempCalc_20k_TypeA(double x)
 
 	result += ((double) 0.0000006826) * temp * temp * temp;
 	//c3a
-	
+
 	result = 1/result;
 	result -= ((double) 273.15);
 	result *= 10;
@@ -181,7 +181,7 @@ double AdTempCalc_20k_TypeB(double x)
 		T1 : 0
 		T2 : 20
 		T3 : 60
-		
+
 		권장 사용 범위는 -10~80도.
 		에러검출은 -15도 이하, 85도 이상일 경우.
 	*/
@@ -190,7 +190,7 @@ double AdTempCalc_20k_TypeB(double x)
 
 	x = x / 3.3 * 2.7;
 	//VSOURCE, VREF가 다른 부분을 처리한다.
-	
+
 	temp = (x * 20) / (2047 - x);
 	temp = log(temp);
 
@@ -202,7 +202,7 @@ double AdTempCalc_20k_TypeB(double x)
 
 	result += ((double) 0.0000003341) * temp * temp * temp;
 	//c3a
-	
+
 	result = 1/result;
 	result -= ((double) 273.15);
 	result *= 10;
@@ -312,6 +312,7 @@ float RecordInput(tU16 Adc, tS32 Min, tS32 Max, tU16 AdcMin, tU16 AdcMax)
 	}
 	else
 	{
+		if(Adc > AdcMax) Adc = AdcMax;
 		Result = Max - Min;
 		Adc -= AdcMin;
 		Result = (float) Adc * (Result / ADCRANGE) + Min;
@@ -448,19 +449,19 @@ static tS32 CnvDateToDay(tag_SysSdkDate *Date)
 {
 	tU8 i;
 	tS32 Day = 0;
-	
+
 	Day = ((Date->Year - 1) * 365) + ((Date->Year - 1) / 4) - ((Date->Year - 1) / 100) + ((Date->Year - 1) / 400);
-	
+
 	if(IsLeapYear(Date->Year) == true)	DaysForMonth[2] = 29;
 	else DaysForMonth[2] = 28;
-	
+
 	for(i = 1; i < Date->Month; i++)
 	{
 		Day += DaysForMonth[i];
 	}
-	
+
 	Day += Date->Date;
-	
+
 	return Day;
 }
 
@@ -470,28 +471,28 @@ void GetDateAfterDay(tag_SysSdkDate *Date, tU16 AddDay)
 	tU16 y = Date->Year;
 	tU8 m = Date->Month;
 	tU8 d = Date->Date;
-	
+
 	while(1)
 	{
 		if(IsLeapYear(y) == true) YearSize = 366;
 		else YearSize = 365;
-		
+
 		if(AddDay < YearSize){ break; }
 		else{ AddDay -= YearSize; y++; }
 	}
 	//연
-	
+
 	while(1)
 	{
 		if(IsLeapYear(y) == true) DaysForMonth[2] = 29;
 		else DaysForMonth[2] = 28;
-		
+
 		if(AddDay <= DaysForMonth[m]) break;
 		AddDay -= DaysForMonth[m];
 		if(++m >= 13){ m = 1; y++; }
 	}
 	//월
-	
+
 	if((d + AddDay) > DaysForMonth[m])
 	{
 		d = d + AddDay - DaysForMonth[m];
@@ -502,7 +503,7 @@ void GetDateAfterDay(tag_SysSdkDate *Date, tU16 AddDay)
 		d += AddDay;
 	}
 	//일
-	
+
 	Date->Year = y;
 	Date->Month = m;
 	Date->Date = d;
@@ -518,11 +519,11 @@ tS32 GetDiffDaysEarlierToAfterDate(tag_SysSdkDate *Earlier, tag_SysSdkDate *Afte
 tU8 CheckScheduleTimeStop(tag_CheckScheduleTime *Sch, tU8 Run, tU8 CurHour, tU8 CurMin)
 {
 	tU16 CurTime, StartTime, EndTime;
-	
+
 	CurTime = (CurHour * 60) + CurMin;
 	StartTime = ((Sch->Start >> 8) * 60) + (Sch->Start & 0x00FF);
 	EndTime = ((Sch->End >> 8) * 60) + (Sch->End & 0x00FF);
-	
+
 	if(Run == false)
 	{
 		return true;
@@ -541,7 +542,7 @@ tU8 CheckScheduleTimeStop(tag_CheckScheduleTime *Sch, tU8 Run, tU8 CurHour, tU8 
 			return true;
 		}
 	}
-	
+
 	return false;
 }
 #endif
@@ -550,7 +551,7 @@ tU8 CheckScheduleTimeStop(tag_CheckScheduleTime *Sch, tU8 Run, tU8 CurHour, tU8 
 tU8 SetRunningTime(tU8 Condition, tU16	*RunTime,	tag_RuntimeVal *Data)
 {
 	const	tU16 Maximum = 65000;
-	
+
 	if(Condition == true)
 	{
 		if(++Data->SecCnt >= 60)
@@ -573,7 +574,7 @@ tU8 SetRunningTime(tU8 Condition, tU16	*RunTime,	tag_RuntimeVal *Data)
 			Data->SecCnt = Data->MinCnt = 0;
 		}
 	}
-	
+
 	return false;
 }
 #endif

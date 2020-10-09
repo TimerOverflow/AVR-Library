@@ -9,7 +9,7 @@
 #include "AvrModbus.h"
 #include "crc16.h"
 /*********************************************************************************/
-#if(AVR_MODBUS_REVISION_DATE != 20200804)
+#if(AVR_MODBUS_REVISION_DATE != 20200909)
 #error wrong include file. (AvrModbus.h)
 #endif
 /*********************************************************************************/
@@ -71,7 +71,7 @@ static void SlaveReadHolding(tag_AvrModbusSlaveCtrl *Slave)
 {
 	tag_AvrUartRingBuf *TxQue = &Slave->Uart->TxQueue;
 	tag_AvrUartRingBuf *RxQue = &Slave->Uart->RxQueue;
-	tU16 StartAddr, NumberOfPoint, Crc16, i;
+	tU16 StartAddr, NumberOfPoint, Crc16, i, MapStartAddr;
 	tU8 *BaseAddr;
 
 	/*
@@ -87,27 +87,28 @@ static void SlaveReadHolding(tag_AvrModbusSlaveCtrl *Slave)
 
 	StartAddr = (tU16) (RxQue->Buf[2] << 8) + RxQue->Buf[3];
 	NumberOfPoint = (tU16) (RxQue->Buf[4] << 8) + RxQue->Buf[5];
+	MapStartAddr = StartAddr == 0 ? 0 : Slave->MapStartAddr;
 
-	if(StartAddr < Slave->MapStartAddr)
+	if(StartAddr < MapStartAddr)
 	{
 		ErrorException(Slave, 2);
 	}
 	else
 	{
-		StartAddr -= Slave->MapStartAddr;
+		StartAddr -= MapStartAddr;
 		NumberOfPoint *= 2;
 		BaseAddr = (tU8 *) (((tU16 *) Slave->BaseAddr) + StartAddr);
-		
+
 		AvrUartPutChar(Slave->Uart, RxQue->Buf[0]);		//Slave Address
 		AvrUartPutChar(Slave->Uart, RxQue->Buf[1]);		//Function
 		AvrUartPutChar(Slave->Uart, NumberOfPoint);		//Byte Count
-	
+
 		for(i = 0; i < NumberOfPoint; i += 2)
 		{
 			AvrUartPutChar(Slave->Uart, *(BaseAddr + i + 1));
 			AvrUartPutChar(Slave->Uart, *(BaseAddr + i));
 		}
-	
+
 		if(Slave->Bit.InitCustomFrameCheck)
 		{
 			Crc16 = Slave->CustomFrameCheck(TxQue, TxQue->Ctr);
@@ -116,7 +117,7 @@ static void SlaveReadHolding(tag_AvrModbusSlaveCtrl *Slave)
 		{
 			Crc16 = Crc16Check(TxQue->OutPtr, TxQue->Buf, &TxQue->Buf[TxQue->Size - 1], TxQue->Ctr);
 		}
-	
+
 		AvrUartPutChar(Slave->Uart, (Crc16 >> 8));
 		AvrUartPutChar(Slave->Uart, (Crc16 & 0x00FF));
 		AvrUartStartTx(Slave->Uart);
@@ -187,7 +188,7 @@ static void SlavePresetMultiple(tag_AvrModbusSlaveCtrl *Slave)
 {
 	tag_AvrUartRingBuf *TxQue = &Slave->Uart->TxQueue;
 	tag_AvrUartRingBuf *RxQue = &Slave->Uart->RxQueue;
-	tU16 StartAddr, NumberOfRegister, Crc16, Length, i, j = 7;
+	tU16 StartAddr, NumberOfRegister, Crc16, Length, MapStartAddr, i, j = 7;
 	tU8 *BaseAddr;
 
 	/*
@@ -203,8 +204,9 @@ static void SlavePresetMultiple(tag_AvrModbusSlaveCtrl *Slave)
 
 	StartAddr = (RxQue->Buf[2] << 8) + RxQue->Buf[3];
 	NumberOfRegister = (RxQue->Buf[4] << 8) + RxQue->Buf[5];
+	MapStartAddr = StartAddr == 0 ? 0 : Slave->MapStartAddr;
 
-	if(((Slave->Bit.InitCheckOutRange == true) && (Slave->CheckOutRange(StartAddr, NumberOfRegister) == true)) || (StartAddr < Slave->MapStartAddr))
+	if(((Slave->Bit.InitCheckOutRange == true) && (Slave->CheckOutRange(StartAddr, NumberOfRegister) == true)) || (StartAddr < MapStartAddr))
 	{
 		ErrorException(Slave, 2);
 	}
@@ -212,7 +214,7 @@ static void SlavePresetMultiple(tag_AvrModbusSlaveCtrl *Slave)
 	{
 		Length = NumberOfRegister * 2;
 		Length = (Length > (Slave->Uart->RxQueue.Size - 9)) ? (Slave->Uart->RxQueue.Size - 9) : Length;
-		BaseAddr = (tU8 *) (((tU16 *) Slave->BaseAddr) + (StartAddr - Slave->MapStartAddr));
+		BaseAddr = (tU8 *) (((tU16 *) Slave->BaseAddr) + (StartAddr - MapStartAddr));
 
 		for(i = 0; i < Length; i += 2)
 		{
@@ -273,18 +275,18 @@ static void SlaveReadSerialNumber(tag_AvrModbusSlaveCtrl *Slave)
 	{
 		NumberOfPoint *= 2;
 		BaseAddr = (tU8 *) Slave->SerialNumberAddr;
-		
+
 		AvrUartPutChar(Slave->Uart, RxQue->Buf[0]);		//Slave Address
 		AvrUartPutChar(Slave->Uart, RxQue->Buf[1]);		//Function
 		AvrUartPutChar(Slave->Uart, NumberOfPoint);		//Byte Count
-	
+
 		for(i = 0; i < NumberOfPoint; i++)
 		{
 			AvrUartPutChar(Slave->Uart, *(BaseAddr + i));
 		}
 
 		Crc16 = Crc16Check(TxQue->OutPtr, TxQue->Buf, &TxQue->Buf[TxQue->Size - 1], TxQue->Ctr);
-	
+
 		AvrUartPutChar(Slave->Uart, (Crc16 >> 8));
 		AvrUartPutChar(Slave->Uart, (Crc16 & 0x00FF));
 		AvrUartStartTx(Slave->Uart);
@@ -452,7 +454,7 @@ tU8 AvrModbusSlaveLinkCustomFrameCheck(tag_AvrModbusSlaveCtrl *Slave, tU16	(*Cus
 		3) 설명
 			- 사용자 정의 프레임 에러 검출 함수 연결.
 	*/
-	
+
 	if(Slave->Bit.InitComplete == false)
 	{
 		return false;
@@ -478,7 +480,7 @@ tU8 AvrModbusSlaveLinkSerialNumber(tag_AvrModbusSlaveCtrl *Slave, char *SerialNu
 		3) 설명
 			- 본 함수를 호출하여 문자열 연결 후 AVR_MODBUS_ReadSerialNumber(0x73)으로 호출하면 프로그램명 응답.
 	*/
-	
+
 	if(Slave->Bit.InitComplete == false)
 	{
 		return false;
@@ -515,7 +517,7 @@ void AvrModbusSlaveProc(tag_AvrModbusSlaveCtrl *Slave, tU8 SlaveId)
 	}
 
 	AvrUartControlTxEnd(Slave->Uart);
-	
+
 	if((AvrUartCheckRx(Slave->Uart) >= 1) && (AvrUartCheckReceiving(Slave->Uart) == false))
 	{
 		if(Slave->Bit.InitPreUserException && Slave->PreUserException(Slave, &SlaveId)) PreException = true;
@@ -548,7 +550,7 @@ void AvrModbusSlaveProc(tag_AvrModbusSlaveCtrl *Slave, tU8 SlaveId)
 						case	AVR_MODBUS_PresetMultiple	:
 							SlavePresetMultiple(Slave);
 						break;
-						
+
 						case	AVR_MODBUS_ReadSerialNumber	:
 							SlaveReadSerialNumber(Slave);
 						break;
@@ -659,7 +661,7 @@ static void MasterPolling(tag_AvrModbusMasterCtrl *Master)
 	{
 		Master->SlavePoll->NoResponseCnt++;
 	}
-	
+
 	PollData = &Master->SlavePoll->PollData[Master->SlavePoll->PollDataIndex];
 
 	AvrUartPutChar(Master->Uart, Master->SlavePoll->Id);
@@ -850,7 +852,7 @@ tU8 AvrModbusMasterAddSlavePollData(tag_AvrModbusMasterCtrl *Master, tU8 Id, enu
 {
 	tU8 i;
 	tag_AvrModbusMasterSlaveInfo *Slave = Master->SlaveArray;
-	
+
 	/*
 		1) 인수
 			- Master : tag_AvrModbusMasterCtrl 인스턴스의 주소.
@@ -890,12 +892,12 @@ tU8 AvrModbusMasterAddSlavePollData(tag_AvrModbusMasterCtrl *Master, tU8 Id, enu
 	{
 		return false;
 	}
-	
+
 	for(i = 0; i < Slave->PollDataMax; i++)
 	{
 		if(Slave->PollData[i].StartAddr == StartAddr) return false;
 	}
-	
+
 	Slave->PollData = (tag_AvrModbusMasterSlavePollData *) realloc(Slave->PollData, (Slave->PollDataMax + 1) * sizeof(tag_AvrModbusMasterSlavePollData));
 	if(Slave->PollData == null)
 	{
@@ -903,13 +905,13 @@ tU8 AvrModbusMasterAddSlavePollData(tag_AvrModbusMasterCtrl *Master, tU8 Id, enu
 		Master->Bit.InitComplete = CheckAllOfMasterInit(Master);
 		return false;
 	}
-	
+
 	Slave->PollDataMax++;
 	Slave->PollData[Slave->PollDataMax - 1].StartAddr = StartAddr;
 	Slave->PollData[Slave->PollDataMax - 1].NumberOfRegister = NumberOfRegister;
 	Slave->PollData[Slave->PollDataMax - 1].BaseAddr = BaseAddr;
 	Slave->PollData[Slave->PollDataMax - 1].PollFunction = PollFunction;
-	
+
 	return true;
 }
 /*********************************************************************************/
